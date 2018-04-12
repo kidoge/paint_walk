@@ -1,0 +1,192 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+	<script
+		src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+		integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+		crossorigin="anonymous"></script>
+</head>
+<body>
+<canvas style="border: black solid 3px;"></canvas>
+	<script>
+		"use strict";
+
+    const FPS_PERIOD = 1000.0 / 30.0;
+		const MAX_AGE = 300;
+    const PARTICLE_RATE = 50;
+    const MAX_PARTICLE_DELTA = 100;
+
+		var maxParticles = 1000;
+    var lastTick = 0;
+
+		let images = [];
+		let particles = [];
+		let canvas = null;
+		let ctx = null;
+
+		let lastMouseX = NaN;
+		let lastMouseY = NaN;
+		let mouseX = NaN;
+		let mouseY = NaN;
+		let mouseDown = false;
+
+		function rgba(r, g, b, a) {
+			return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+		}
+
+		class Particle {
+			constructor(x, y, r, g, b) {
+				this.x = x;
+				this.y = y;
+				this.r = r;
+				this.g = g;
+				this.b = b;
+				this.age = 0;
+			}
+			
+			drawAndIterate(ctx) {
+				let rand = Math.random();
+				let oldX = this.x;
+				let oldY = this.y;
+				if (rand < 0.25) {
+					this.x+=5;
+				} else if (rand < 0.5) {
+					this.x-=5;
+				} else if (rand < 0.75) {
+					this.y+=5;
+				} else {
+					this.y-=5;
+				}
+				this.age++;
+				let idx = (this.y * images[0].width + this.x) * 4;
+				this.r = images[0].data[idx];
+				this.g = images[0].data[idx + 1];
+				this.b = images[0].data[idx + 2];
+				ctx.strokeStyle = rgba(this.r, this.g, this.b, lerp(0.5, 0.0, this.age / MAX_AGE));
+				ctx.fillStyle = rgba(this.r, this.g, this.b, lerp(0.5, 0.0, this.age / MAX_AGE));
+				//ctx.fillRect(this.x, this.y, 2, 2);
+				ctx.beginPath();
+				ctx.moveTo(oldX, oldY);
+				ctx.lineTo(this.x, this.y);
+				ctx.stroke();
+			}
+		}
+
+		function resizeCanvas() {
+			canvas.width = window.innerWidth * 0.9;
+			canvas.height = window.innerHeight * 0.9;
+		}
+
+		function randomParticle() {
+			return new Particle(Math.floor(Math.random() * canvas.width),
+								Math.floor(Math.random() * canvas.height),
+								Math.random() * 256,
+								Math.random() * 256,
+								Math.random() * 256);
+		}
+
+		function lerp(start, end, x) {
+			if (x == 0) {
+        return start;
+			} if (x == 1) {
+        return end;
+			}
+			return start + (end - start) * x;
+		}
+
+		function initCanvas() {
+			canvas = $("canvas")[0];
+			window.onresize = resizeCanvas;
+			resizeCanvas();
+			canvas.onmousedown = function(e) {
+        e.preventDefault();
+				mouseDown = true;
+				mouseX = lastMouseX = e.x;
+				mouseY = lastMouseY = e.y;
+			};
+			
+			canvas.onmousemove = function(e) {
+        e.preventDefault();
+				lastMouseX = mouseX;
+				lastMouseY = mouseY;
+				mouseX = e.x;
+				mouseY = e.y;
+			};
+			
+			canvas.onmouseup = function(e) {
+        e.preventDefault();
+				mouseDown = false;
+				mouseX = lastMouseX = NaN;
+				mouseY = lastMouseY = NaN;
+			};
+			
+			ctx = canvas.getContext("2d");
+			ctx.fillStyle = rgba(255, 255, 255, 1);
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			
+			window.requestAnimationFrame(draw);
+		}
+
+    function updateMax() {
+      let tick = performance.now();
+      if (particles.length > maxParticles - MAX_PARTICLE_DELTA && tick - lastTick < FPS_PERIOD) {
+        maxParticles += MAX_PARTICLE_DELTA
+        console.log(tick - lastTick + ": " + maxParticles);
+      } else {
+        maxParticles -= MAX_PARTICLE_DELTA;
+      }
+      lastTick = tick;
+    }
+
+		function draw() {
+      updateMax();
+			for (let idx = 0; idx < PARTICLE_RATE; ++idx) {
+				if (mouseDown && particles.length < maxParticles) {
+					particles.push(new Particle(Math.floor(lerp(lastMouseX, mouseX, idx / (PARTICLE_RATE - 1))), 
+												Math.floor(lerp(lastMouseY, mouseY, idx / (PARTICLE_RATE - 1))), 0, 0, 0));
+				}
+			}
+			
+			for (let idx = 0; idx < particles.length; ++idx) {
+				particles[idx].drawAndIterate(ctx);
+			}
+			
+			// Remove old particles
+			let truncateIdx = 0;
+			for (let idx = 0; idx < particles.length; ++idx) {
+        let part = particles[idx];
+				if (part.age >= MAX_AGE) {
+					truncateIdx = idx + 1;
+				}
+			}
+			particles = particles.slice(truncateIdx);
+			
+			window.requestAnimationFrame(draw);
+		}
+
+		function loadImages(fn) {
+			let img = new Image();
+			img.onload = function() {
+				var can = document.createElement('canvas');
+				can.width = img.width;
+				can.height = img.height;
+				let context = can.getContext('2d');
+				context.drawImage(img, 0, 0, img.width, img.height);
+				images.push(context.getImageData(0, 0, img.width, img.height));
+				if (images.length == 1) {
+					fn();
+				}
+			};
+			img.src = "image2.jpg";
+		}
+
+		$(function() {
+			loadImages(function() {
+			initCanvas();
+			});
+		});
+	</script>
+</body>
+</html>
