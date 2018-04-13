@@ -15,12 +15,14 @@
 
     const FPS_PERIOD = 1000.0 / 30.0;
     const MAX_AGE = 300;
-    const PARTICLE_RATE = 50;
+    const PARTICLE_RATE = 2;
 
     var maxParticles = 100000;
     var lastTick = 0;
 
 
+    let currentImageIdx = 0;
+    let imageSources = ["image1.jpg", "image2.jpg"];
     let images = [];
     let particles = [];
     let canvas = null;
@@ -37,14 +39,12 @@
     }
 
     class Particle {
-      constructor(x, y, r, g, b) {
+      constructor(x, y, imageIdx) {
         this.x = x;
         this.y = y;
         this.lastX = x;
         this.lastY = y;
-        this.r = r;
-        this.g = g;
-        this.b = b;
+        this.imageIdx = imageIdx;
         this.age = 0;
       }
 
@@ -53,20 +53,23 @@
         this.lastY = this.y;
         let rand = Math.random();
         if (rand < 0.25) {
-          this.x+=5;
+          this.x+=3;
         } else if (rand < 0.5) {
-          this.x-=5;
+          this.x-=3;
         } else if (rand < 0.75) {
-          this.y+=5;
+          this.y+=3;
         } else {
-          this.y-=5;
+          this.y-=3;
         }
         this.age++;
       }
 
       getColor() {
-        let idx = (this.y * images[image].width + this.x) * 4;
-        return rgba(images[0].data[idx], images[0].data[idx + 1], images[0].data[idx + 2], lerp(0.2, 0.0, this.age / MAX_AGE));
+        let idx = (this.y * images[this.imageIdx].width + this.x) * 4;
+        return rgba(images[this.imageIdx].data[idx],
+                    images[this.imageIdx].data[idx + 1],
+                    images[this.imageIdx].data[idx + 2],
+                    lerp(0.5, 0.0, this.age / MAX_AGE));
       }
 
       drawAndIterate(ctx) {
@@ -82,16 +85,8 @@
     }
 
     function resizeCanvas() {
-      canvas.width = document.body.clientWidth;
-      canvas.height = window.innerHeight * 0.9;
-    }
-
-    function randomParticle() {
-      return new Particle(Math.floor(Math.random() * canvas.width),
-                Math.floor(Math.random() * canvas.height),
-                Math.random() * 256,
-                Math.random() * 256,
-                Math.random() * 256);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
 
     function lerp(start, end, x) {
@@ -109,6 +104,10 @@
       resizeCanvas();
       canvas.onmousedown = function(e) {
         e.preventDefault();
+        currentImageIdx++;
+        if (currentImageIdx >= images.length) {
+          currentImageIdx = 0;
+        }
         mouseDown = true;
         mouseX = lastMouseX = e.x;
         mouseY = lastMouseY = e.y;
@@ -130,6 +129,7 @@
       };
       
       ctx = canvas.getContext("2d");
+      ctx.lineWidth = 3;
       ctx.fillStyle = rgba(255, 255, 255, 1);
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
@@ -140,7 +140,7 @@
       for (let idx = 0; idx < PARTICLE_RATE; ++idx) {
         if (mouseDown && particles.length < maxParticles) {
           particles.push(new Particle(Math.floor(lerp(lastMouseX, mouseX, idx / (PARTICLE_RATE - 1))), 
-                        Math.floor(lerp(lastMouseY, mouseY, idx / (PARTICLE_RATE - 1))), 0, 0, 0));
+                        Math.floor(lerp(lastMouseY, mouseY, idx / (PARTICLE_RATE - 1))), currentImageIdx));
         }
       }
       
@@ -162,24 +162,28 @@
     }
 
     function loadImages(fn) {
-      let img = new Image();
-      img.onload = function() {
-        var can = document.createElement('canvas');
-        can.width = img.width;
-        can.height = img.height;
-        let context = can.getContext('2d');
-        context.drawImage(img, 0, 0, img.width, img.height);
-        images.push(context.getImageData(0, 0, img.width, img.height));
-        if (images.length == 1) {
-          fn();
-        }
-      };
-      img.src = "image2.jpg";
+      for (let idx = 0; idx < imageSources.length; ++idx) {
+        let img = new Image();
+        img.onload = function() {
+          var can = document.createElement('canvas');
+          can.width = img.width;
+          can.height = img.height;
+          let context = can.getContext('2d');
+          context.drawImage(img, 0, 0, img.width, img.height);
+          images.push(context.getImageData(0, 0, img.width, img.height));
+          if (images.length == imageSources.length) {
+            fn();
+          }
+        };
+        img.src = imageSources[idx];
+      }
     }
 
     $(function() {
       loadImages(function() {
       initCanvas();
+      window.onresize = resizeCanvas;
+
       });
     });
   </script>
