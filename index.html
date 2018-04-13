@@ -16,12 +16,11 @@
     const FPS_PERIOD = 1000.0 / 30.0;
 		const MAX_AGE = 300;
     const PARTICLE_RATE = 50;
-    const MAX_PARTICLE_DELTA = 100;
 
-		var maxParticles = 1000;
+		var maxParticles = 100000;
     var lastTick = 0;
 
-		let images = [];
+
 		let particles = [];
 		let canvas = null;
 		let ctx = null;
@@ -40,17 +39,16 @@
 			constructor(x, y, r, g, b) {
 				this.x = x;
 				this.y = y;
-				this.r = r;
-				this.g = g;
-				this.b = b;
+        this.lastX = x;
+        this.lastY = y;
 				this.age = 0;
 			}
-			
-			drawAndIterate(ctx) {
+
+		  iterate() {
+        this.lastX = this.x;
+        this.lastY = this.y;
 				let rand = Math.random();
-				let oldX = this.x;
-				let oldY = this.y;
-				if (rand < 0.25) {
+        if (rand < 0.25) {
 					this.x+=5;
 				} else if (rand < 0.5) {
 					this.x-=5;
@@ -60,15 +58,20 @@
 					this.y-=5;
 				}
 				this.age++;
-				let idx = (this.y * images[0].width + this.x) * 4;
-				this.r = images[0].data[idx];
-				this.g = images[0].data[idx + 1];
-				this.b = images[0].data[idx + 2];
-				ctx.strokeStyle = rgba(this.r, this.g, this.b, lerp(0.5, 0.0, this.age / MAX_AGE));
-				ctx.fillStyle = rgba(this.r, this.g, this.b, lerp(0.5, 0.0, this.age / MAX_AGE));
+      }
+
+      getColor() {
+        let idx = (this.y * images[image].width + this.x) * 4;
+        return rgba(images[0].data[idx], images[0].data[idx + 1], images[0].data[idx + 2], lerp(0.2, 0.0, this.age / MAX_AGE));
+      }
+
+			drawAndIterate(ctx) {
+        this.iterate();
+				ctx.strokeStyle = this.getColor();
+				ctx.fillStyle = ctx.strokeStyle;
 				//ctx.fillRect(this.x, this.y, 2, 2);
 				ctx.beginPath();
-				ctx.moveTo(oldX, oldY);
+				ctx.moveTo(this.lastX, this.lastY);
 				ctx.lineTo(this.x, this.y);
 				ctx.stroke();
 			}
@@ -129,19 +132,7 @@
 			window.requestAnimationFrame(draw);
 		}
 
-    function updateMax() {
-      let tick = performance.now();
-      if (particles.length > maxParticles - MAX_PARTICLE_DELTA && tick - lastTick < FPS_PERIOD) {
-        maxParticles += MAX_PARTICLE_DELTA
-        console.log(tick - lastTick + ": " + maxParticles);
-      } else {
-        maxParticles -= MAX_PARTICLE_DELTA;
-      }
-      lastTick = tick;
-    }
-
 		function draw() {
-      updateMax();
 			for (let idx = 0; idx < PARTICLE_RATE; ++idx) {
 				if (mouseDown && particles.length < maxParticles) {
 					particles.push(new Particle(Math.floor(lerp(lastMouseX, mouseX, idx / (PARTICLE_RATE - 1))), 
